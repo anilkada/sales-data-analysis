@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Data Analysis System</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--ink:#1c2333;--mute:#6b7488;--line:#e3e7ef;--on:#2563eb;--off:#ea580c}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#1c2333;color:#fff;padding:16px 28px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+h1{font-size:20px;margin:0}
+.btns button{border:2px solid #fff3;background:transparent;color:#fff;padding:9px 20px;border-radius:24px;font-size:15px;cursor:pointer;margin-left:6px}
+.btns button.on{background:#fff;color:#1c2333;font-weight:600}
+.btns button[data-ch=Online].on{background:var(--on);color:#fff;border-color:var(--on)}
+.btns button[data-ch=Offline].on{background:var(--off);color:#fff;border-color:var(--off)}
+nav{display:flex;gap:4px;padding:10px 28px 0;flex-wrap:wrap;border-bottom:1px solid var(--line);background:#fff}
+nav button{border:0;background:none;padding:10px 16px;font-size:14px;cursor:pointer;color:var(--mute);border-bottom:3px solid transparent}
+nav button.on{color:var(--ink);border-color:var(--on);font-weight:600}
+main{padding:22px 28px;max-width:1300px;margin:auto}section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h3{margin:0 0 10px;font-size:15px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+.kpis{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi small{color:var(--mute)}.kpi b{display:block;font-size:24px;margin-top:4px}
+canvas{max-height:300px}ul{margin:0;padding-left:20px;line-height:1.7}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+th{color:var(--mute);font-weight:600}tr.click:hover{background:#f0f4ff;cursor:pointer}
+.tag{padding:2px 9px;border-radius:10px;font-size:12px;color:#fff}.tag.Online{background:var(--on)}.tag.Offline{background:var(--off)}
+input,select{padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;width:100%}
+.row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center}.row>*{flex:1;min-width:150px}
+.btn{background:var(--on);color:#fff;border:0;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:14px;flex:0}
+.pager{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:10px}
+.neg{color:#dc2626}.pos{color:#16a34a}.note{color:var(--mute);font-size:13px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.form label{font-size:13px;color:var(--mute);display:block;margin-bottom:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Sales Data Analysis System</h1>
+  <div class="btns">
+    <button data-ch="Online">🌐 Online Sales</button>
+    <button data-ch="Offline">🏬 Offline Sales</button>
+    <button data-ch="All" class="on">All Sales</button>
+  </div>
+</header>
+<nav>
+  <button data-tab="dash" class="on">Dashboard</button><button data-tab="records">Sales Records</button>
+  <button data-tab="cust">Customer Details</button><button data-tab="fore">Forecast</button>
+  <button data-tab="why">Why Sales Dropped</button><button data-tab="data">Dataset</button><button data-tab="add">+ Add Sale</button>
+</nav>
+<main>
+<section id="dash" class="on">
+  <div class="kpis" id="kpis"></div>
+  <div class="card"><h3>Key insights</h3><ul id="insights"></ul></div>
+  <div class="card"><h3>Sales trend (monthly)</h3><canvas id="cTrend"></canvas></div>
+  <div class="grid">
+    <div class="card"><h3>Region-wise sales</h3><canvas id="cRegion"></canvas></div>
+    <div class="card"><h3>Category-wise sales</h3><canvas id="cCat"></canvas></div>
+    <div class="card"><h3>Top 10 products</h3><canvas id="cProd"></canvas></div>
+    <div class="card"><h3>Sales distribution (histogram)</h3><canvas id="cHist"></canvas><p class="note" id="histNote"></p></div>
+  </div>
+</section>
+
+<section id="records"><div class="card">
+  <div class="row"><input id="q" placeholder="Search customer name / ID, product or order ID..."><button class="btn" onclick="loadRecords(1)">Search</button></div>
+  <div style="overflow-x:auto"><table><thead><tr><th>Order</th><th>Date</th><th>Customer</th><th>Location</th><th>Product (what was bought)</th><th>Category</th><th>Price</th><th>Channel</th></tr></thead><tbody id="recBody"></tbody></table></div>
+  <div class="pager"><span id="recInfo" class="note"></span><button class="btn" onclick="loadRecords(recPage-1)">Prev</button><button class="btn" onclick="loadRecords(recPage+1)">Next</button></div>
+</div></section>
+
+<section id="cust">
+  <div class="card"><div class="row"><input id="cq" placeholder="Type customer name or ID (e.g. Claire, CG-12520)"><button class="btn" onclick="findCust()">Search</button></div>
+  <div id="cList"></div></div>
+  <div id="cProfile"></div>
+</section>
+
+<section id="fore">
+  <div class="kpis" id="fKpis"></div>
+  <div class="card"><h3>Sales forecast - next 6 months</h3><canvas id="cFore"></canvas>
+  <p class="note">Method: linear trend x monthly seasonality. Shaded band = ~80% likely range. Accuracy is measured by hiding the last 12 months and predicting them (MAPE).</p></div>
+  <div class="card"><h3>Forecast table</h3><table id="fTable"></table></div>
+</section>
+
+<section id="why"><div class="card"><h3>Year-over-year performance</h3><table id="yTable"></table></div><div id="whyList"></div></section>
+
+<section id="data"><div class="card"><h3>Dataset structure (train.csv)</h3><p class="note" id="dInfo"></p>
+  <div style="overflow-x:auto"><table id="dTable"></table></div></div>
+  <div class="card"><h3>Data processing steps</h3><ol id="dSteps" style="line-height:1.8"></ol></div></section>
+
+<section id="add"><div class="card"><h3>Record a new sale</h3>
+  <p class="note">Existing customer? Enter their ID and the details are filled from records. New customer? Leave ID blank and fill the rest.</p>
+  <div class="form">
+    <div><label>Channel</label><select id="a_channel"><option>Online</option><option>Offline</option></select></div>
+    <div><label>Date</label><input type="date" id="a_date"></div>
+    <div><label>Customer ID (optional)</label><input id="a_cid"></div>
+    <div><label>Customer name (new)</label><input id="a_name"></div>
+    <div><label>Segment</label><select id="a_segment"><option>Consumer</option><option>Corporate</option><option>Home Office</option></select></div>
+    <div><label>City</label><input id="a_city"></div><div><label>State</label><input id="a_state"></div>
+    <div><label>Region</label><select id="a_region"><option>East</option><option>West</option><option>Central</option><option>South</option></select></div>
+    <div><label>Product name</label><input id="a_product"></div>
+    <div><label>Category</label><select id="a_category"><option>Furniture</option><option>Office Supplies</option><option>Technology</option></select></div>
+    <div><label>Price ($)</label><input type="number" step="0.01" id="a_sales"></div>
+  </div>
+  <p><button class="btn" onclick="addSale()">Save sale</button> <span id="addMsg"></span></p>
+</div></section>
+</main>
+
+<script>
+let channel="All", tab="dash", recPage=1, charts={};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money=n=>"$"+Number(n).toLocaleString(undefined,{maximumFractionDigits:0});
+const money2=n=>"$"+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const api=p=>fetch(p+(p.includes("?")?"&":"?")+"channel="+channel).then(r=>r.json());
+const COL={All:"#7c3aed",Online:"#2563eb",Offline:"#ea580c"};
+const tag=c=>`<span class="tag ${c}">${c}</span>`;
+
+function draw(id,cfg){ if(charts[id])charts[id].destroy(); charts[id]=new Chart($(id),cfg); }
+
+document.querySelectorAll(".btns button").forEach(b=>b.onclick=()=>{
+  channel=b.dataset.ch; document.querySelectorAll(".btns button").forEach(x=>x.classList.toggle("on",x===b)); refresh();});
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  tab=b.dataset.tab; document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id===tab)); refresh();});
+
+function refresh(){ ({dash:loadDash,records:()=>loadRecords(1),cust:findCust,fore:loadForecast,why:loadWhy,data:loadData,add:()=>{}})[tab](); }
+
+async function loadDash(){
+  const d=await api("/api/summary"), c=COL[channel];
+  if(d.empty){$("kpis").innerHTML="No data";return;}
+  const k=d.kpis;
+  $("kpis").innerHTML=[["Total sales",money(k.total)],["Orders",k.orders.toLocaleString()],["Customers",k.customers],
+    ["Avg per item sold",money2(k.avg)],["Avg order value",money2(k.aov)]].map(x=>`<div class="kpi"><small>${x[0]}</small><b>${x[1]}</b></div>`).join("");
+  $("insights").innerHTML=d.insights.map(i=>`<li>${esc(i)}</li>`).join("");
+  draw("cTrend",{type:"line",data:{labels:d.monthly.labels,datasets:[{label:channel+" sales",data:d.monthly.values,borderColor:c,backgroundColor:c+"22",fill:true,tension:.3,pointRadius:2}]},options:{plugins:{legend:{display:false}}}});
+  draw("cRegion",{type:"bar",data:{labels:d.region.labels,datasets:[{data:d.region.values,backgroundColor:c}]},options:{plugins:{legend:{display:false}}}});
+  draw("cCat",{type:"doughnut",data:{labels:d.category.labels,datasets:[{data:d.category.values,backgroundColor:["#2563eb","#ea580c","#16a34a"]}]}});
+  draw("cProd",{type:"bar",data:{labels:d.products.labels.map(s=>s.length>28?s.slice(0,28)+"…":s),datasets:[{data:d.products.values,backgroundColor:c}]},options:{indexAxis:"y",plugins:{legend:{display:false}}}});
+  draw("cHist",{type:"bar",data:{labels:d.hist.labels,datasets:[{data:d.hist.values,backgroundColor:c}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{maxRotation:60,font:{size:9}}}}}});
+  $("histNote").textContent=`Shows sales up to ${money(d.hist.cap)} (95% of items). ${d.hist.outliers} very large sales are not shown. Most sales are small; few are big.`;
+}
+
+async function loadRecords(p){
+  if(p<1)return; const d=await api(`/api/records?page=${p}&q=${encodeURIComponent($("q").value)}`);
+  if(p>d.pages)return; recPage=d.page;
+  $("recBody").innerHTML=d.rows.map(r=>`<tr class="click" onclick="openCust('${esc(r.cid)}')"><td>${esc(r.order_id)}</td><td>${r.date}</td>
+    <td>${esc(r.customer)}<br><small class="note">${esc(r.cid)} · ${esc(r.segment)}</small></td><td>${esc(r.city)}, ${esc(r.state)}<br><small class="note">${esc(r.region)}</small></td>
+    <td>${esc(r.product)}</td><td>${esc(r.category)}</td><td><b>${money2(r.sales)}</b></td><td>${tag(r.channel)}</td></tr>`).join("");
+  $("recInfo").textContent=`${d.total.toLocaleString()} records · page ${d.page}/${d.pages} (click a row to open the customer)`;
+}
+
+async function findCust(){
+  const l=await fetch("/api/customers?q="+encodeURIComponent($("cq").value)).then(r=>r.json());
+  $("cList").innerHTML=`<table><tr><th>ID</th><th>Name</th><th>Total spent</th></tr>`+l.map(c=>`<tr class="click" onclick="openCust('${esc(c.cid)}')"><td>${esc(c.cid)}</td><td>${esc(c.name)}</td><td>${money(c.total)}</td></tr>`).join("")+`</table>`;
+}
+async function openCust(id){
+  document.querySelector('nav button[data-tab=cust]').click();
+  const c=await fetch("/api/customer/"+encodeURIComponent(id)).then(r=>r.json());
+  if(c.error){$("cProfile").innerHTML=c.error;return;}
+  $("cProfile").innerHTML=`<div class="card"><h3>${esc(c.name)} <small class="note">(${esc(c.cid)})</small></h3>
+   <div class="kpis"><div class="kpi"><small>Total spent</small><b>${money2(c.total)}</b></div><div class="kpi"><small>🌐 Online spend</small><b>${money2(c.online)}</b></div>
+   <div class="kpi"><small>🏬 Offline spend</small><b>${money2(c.offline)}</b></div><div class="kpi"><small>Orders</small><b>${c.orders}</b></div></div>
+   <p>${esc(c.segment)} customer · ${esc(c.city)}, ${esc(c.state)} (${esc(c.region)}) · first purchase ${c.first} · last purchase ${c.last} · favourite category: ${esc(c.fav_category)}</p>
+   <table><tr><th>Order</th><th>Date</th><th>Product</th><th>Category</th><th>Price</th><th>Channel</th></tr>`+
+   c.purchases.map(r=>`<tr><td>${esc(r.order_id)}</td><td>${r.date}</td><td>${esc(r.product)}</td><td>${esc(r.category)}</td><td>${money2(r.sales)}</td><td>${tag(r.channel)}</td></tr>`).join("")+`</table></div>`;
+}
+
+async function loadForecast(){
+  const f=await api("/api/forecast?months=6"); if(f.error){$("fKpis").innerHTML=f.error;return;}
+  const n=f.hist.labels.length, c=COL[channel], pad=Array(n).fill(null), last=f.hist.values[n-1];
+  const hist=f.hist.values.concat(Array(6).fill(null));
+  const line=[...pad.slice(0,n-1),last,...f.fc.values];
+  const lo=[...pad.slice(0,n-1),last,...f.fc.lo], hi=[...pad.slice(0,n-1),last,...f.fc.hi];
+  draw("cFore",{type:"line",data:{labels:f.hist.labels.concat(f.fc.labels),datasets:[
+    {label:"Actual",data:hist,borderColor:c,tension:.3,pointRadius:1},
+    {label:"Forecast",data:line,borderColor:"#16a34a",borderDash:[6,4],tension:.3},
+    {label:"Low",data:lo,borderColor:"transparent",backgroundColor:"#16a34a22",pointRadius:0,fill:"+1"},
+    {label:"High",data:hi,borderColor:"transparent",pointRadius:0}]},options:{plugins:{legend:{labels:{filter:i=>!["Low","High"].includes(i.text)}}}}});
+  const g=f.growth;
+  $("fKpis").innerHTML=`<div class="kpi"><small>Expected sales, next 6 months</small><b>${money(f.next_total)}</b></div>
+   <div class="kpi"><small>vs. same 6 months last year</small><b class="${g<0?'neg':'pos'}">${g==null?"-":(g>0?"+":"")+g+"%"}</b></div>
+   <div class="kpi"><small>Back-test error (MAPE)</small><b>${f.mape}%</b></div>`;
+  $("fTable").innerHTML="<tr><th>Month</th><th>Forecast</th><th>Likely range</th></tr>"+f.fc.labels.map((m,i)=>`<tr><td>${m}</td><td><b>${money(f.fc.values[i])}</b></td><td>${money(f.fc.lo[i])} – ${money(f.fc.hi[i])}</td></tr>`).join("");
+}
+
+async function loadWhy(){
+  const d=await api("/api/decline");
+  $("yTable").innerHTML="<tr><th>Year</th><th>Sales</th><th>Change</th></tr>"+d.years.map(y=>`<tr><td>${y.year}</td><td>${money(y.sales)}</td><td class="${y.change<0?'neg':'pos'}">${y.change==null?"-":(y.change>0?"+":"")+y.change+"%"}</td></tr>`).join("");
+  $("whyList").innerHTML=d.months.length?`<h3>Worst months vs the same month last year, and why</h3>`+d.months.map(m=>`<div class="card"><h3>${m.month} <span class="neg">${m.pct}%</span> <small class="note">(${money(m.sales)})</small></h3><ul>${m.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul></div>`).join(""):"<p>No declining months found.</p>";
+}
+
+async function loadData(){
+  const d=await fetch("/api/dataset").then(r=>r.json());
+  $("dInfo").textContent=`${d.rows.toLocaleString()} rows · ${d.cols.length-1} original columns + 1 added (Channel) · orders from ${d.start} to ${d.end}`;
+  $("dTable").innerHTML="<tr><th>Column</th><th>Type</th><th>Missing</th><th>Unique</th><th>Example</th><th>Meaning</th></tr>"+d.cols.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td>${c.type}</td><td>${c.missing}</td><td>${c.unique}</td><td>${esc(c.example)}</td><td>${esc(c.desc)}</td></tr>`).join("");
+  $("dSteps").innerHTML=d.steps.map(s=>`<li>${esc(s)}</li>`).join("");
+}
+async function addSale(){
+  const g=i=>$("a_"+i).value, body={channel:g("channel"),date:g("date"),cid:g("cid"),name:g("name"),segment:g("segment"),city:g("city"),state:g("state"),region:g("region"),product:g("product"),category:g("category"),sales:g("sales")};
+  const r=await fetch("/api/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json());
+  $("addMsg").innerHTML=r.error?`<span class="neg">${esc(r.error)}</span>`:`<span class="pos">Saved! Order ${r.order_id}, customer ${r.cid}</span>`;
+}
+$("a_date").valueAsDate=new Date(); loadDash();
+</script>
+</body>
+</html>
